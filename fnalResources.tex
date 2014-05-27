@@ -1,0 +1,41 @@
+\chapter{Fermilab Resources}
+
+Fermilab provides several resources for use by Muon $g-2$ collaborators. A description and usage information are described here.
+
+\section{\index{GPCF}\index{gm2gpvm}General Physics Computing Facility (GPCF)}
+
+The General Physics Computing Facility (GPCF) is a farm of virtualized interactive login machines located at Fermilab. These machines are meant for interactive use (compiling code, running \texttt{root}, etc). These machines are also a gateway to other Fermilab resources (storage, Fermigrid, etc).
+
+\subsection{Quick Start FAQ}
+
+\index{gm2gpvm!accessing}
+\begin{description}[style=nextline]
+\item[Q: How do I get an account?] A: If you cannot log in (see below), then see the \href{https://cdcvs.fnal.gov/redmine/projects/g-2/wiki/NewGm2Person}{Welcome Packet}.\\
+
+\item[Q: Where do I log in?] A: Get a forwardable kerberos ticket (\texttt{kinit -f}) and \texttt{ssh} to \texttt{gm2gpvm.fnal.gov}. \textbf{IMPORTANT} You must configure your ssh client correctly. See \ref{sec:configssh}\fxnote{Write configssh section}.\\
+
+\item[Q: How come when I ssh to gm2gpvm I get a machine called gm2gpvm01 (or 02, 03)?] A: We have several identical virtual machines for g-2. In order to spread the interactive load, we have a special "DNS Endpoint" called \textsf{gm2gpvm} which chooses a particular machine for you in a round-robin fashion. See \ref{sc:configssh} for more information. \\
+
+\item[Q: Where can I put stuff?] A: In your home area. If you cannot write to your home area (you get permission denied), do a \texttt{kinit}, type in your \textit{kerberos} password, and things will work.\\
+
+\item[Q: Where else can I put stuff?] A: If you are writing applications, you can make a directory at \texttt{/gm2/app/users}. See below for instructions.\\
+
+\item[Q: What can I run?] A: See \ref{sec:software}\fxnote{Write software section}.\\
+
+\item[Q: How can I run VNC?] A: See section \ref{sec:vnc}\fxnote{Write VNC section} for VNC information.
+
+\end{description}
+
+\subsection{General information}
+
+Muon $g-2$ currently has three virtual machines running Scientific Linux 5 (SL5) on GPCF called \texttt{gm2gpvm01}, \texttt{gm2gpvm02}, and \texttt{gm2gpvm03}. There is also another VM running SL6 called \texttt{gm2gpvm04}. WIth a kerberos ticket, you can ssh to one of these nodes and do work. So that you don't have to choose a particular machine, log into \texttt{gm2gpvm.fnal.gov} and one will be chosen for you (the SL6 node, \texttt{gm2gpvm04} is excluded). Be sure to read the instructions in section \ref{sec:configssh} to configure your ssh client correctly.
+
+Your home area is your \texttt{afs} home directory. Since that area is backed up, you should put your important files and code there. There are other disk areas that are not backed up which are available. 
+
+\begin{description}[style=nextline]
+
+\item[\texttt{/gm2/app}]The main application area. Individuals can have space at \texttt{/gm2/app/users}. Simple \texttt{cd} there and make a directory with your name (e.g. \texttt{cd /gm2/app/users ; mkdir lyon}. If you plan to use a large amount of space, please send mail to \url{gm2-computing@fnal.gov} first. \\
+
+\item[\texttt{/gm2/data}]The main data area. You can use this area to write ntuples and histograms. There is a similar \texttt{/gm2/data/users} structure to \texttt{/gm2/app}. 
+\end{description}
+  

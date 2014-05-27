@@ -1,0 +1,75 @@
+%% gm2Offline Computing and Software
+
+\documentclass{tufte-book}
+
+\hypersetup{colorlinks}% uncomment this line if you prefer colored hyperlinks (e.g., for onscreen viewing)
+
+%% Book metadata
+\title{Offline Computing and Software \\ \noindent Manual}
+\author{Muon $g-2$}
+\publisher{v201402   April 16, 2014 {\footnotesize\texttt{[master a78a4c0]}} \hfill \href{http://gm2-docdb.fnal.gov/cgi-bin/ShowDocument?docid=1825}{GM2-doc-1825} }
+
+% Pick fonts
+\IfFileExists{bergamo.sty}{\usepackage[osf]{bergamo}}{}% Bembo
+\IfFileExists{chantill.sty}{\usepackage{chantill}}{}% Gill Sans
+
+% CPP Listings
+\usepackage{cpplistings}
+\lstMakeShortInline[language=isocpp,style=cpplistingstyle]|
+
+% Section numbering
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{1}
+
+%%
+% For nicely typeset tabular material
+\usepackage{booktabs}
+
+%%
+% For graphics / images
+\usepackage{graphicx}
+\setkeys{Gin}{width=\linewidth,totalheight=\textheight,keepaspectratio}
+\graphicspath{{graphics/}}
+
+% The fancyvrb package lets us customize the formatting of verbatim
+% environments.  We use a slightly smaller font.
+\usepackage{fancyvrb}
+\fvset{fontsize=\normalsize}
+
+%%
+% Prints a trailing space in a smart way.
+\usepackage{xspace}
+
+\usepackage{units}
+
+
+%\usepackage{enumitem}  % needed for FAQs
+%\usepackage[draft,nomargin,marginclue]{fixme}
+
+%% Indexing
+\usepackage{makeidx}
+\makeindex
+
+\begin{document}
+
+\frontmatter
+
+\maketitle
+
+\tableofcontents
+
+\mainmatter
+
+\include{linking}
+\include{commonThingsYouDo}
+
+\backmatter
+
+\nobibliography{manual}
+\bibliographystyle{apsrev}
+
+\printindex
+
+%%\listoffixmes
+
+\end{document}

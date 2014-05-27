@@ -1,0 +1,583 @@
+\chapter{Writing Source Code}
+
+Your source code lives within a git project checked out to your
+development area's \texttt{srcs} directory. The project has a top
+level directory\sidenote{For example, the \texttt{gm2ringsim} project
+  would get checked out to \texttt{srcs/gm2ringsim}, which is
+  the ``top level'' directory.} that contains the ``top level''
+\texttt{CMakeLists.txt} file along with various subdirectories. Code
+with a common purpose should live in a particular
+subdirectory.\sidenote{Examine \texttt{gm2ringsim} for more examples.}
+You may mix headers (\texttt{.h}, \texttt{.hh}), implementation
+(\texttt{.cc}, \texttt{.cpp}), and configuration (\texttt{.fcl}) files
+all in the same subdirectory.
+
+\section{\index{CMakeLists.txt!top level}Top level \texttt{CMakeLists.txt} file}
+\label{sec:toplevelcmake}
+
+The top level \texttt{CMakeLists.txt} file lives in your top level project directory (e.g.\ \texttt{srcs/gm2ringsim/CMakeLists.txt}). It has the main directives that tells CMake how to build your project. 
+
+Below is a representative top level \texttt{CMakeLists.txt} file.\sidenote{There are five main parts of the file (roughly in order in the file)...
+\begin{itemize}
+\item Defining the project
+\item Loading CMake macros and setting the CMake environment
+\item Setting compiler options
+\item Specifying external packages that will be used
+\item Specifying subdirectories that contain a \texttt{CMakeLists.txt} file and, perhaps, code to build
+\end{itemize}
+}  The \cppcode{mrb newProduct} command will create a skeleton file for you. 
+{\small
+\begin{cpplisting}
+# Ensure we are using a moden version of CMake
+CMAKE_MINIMUM_REQUIRED (VERSION 2.8)
+
+# Project name - use all lowercase
+PROJECT (gm2analyses)
+
+# Define Module search path
+set( CETBUILDTOOLS_VERSION $ENV{CETBUILDTOOLS_VERSION} )
+if( NOT CETBUILDTOOLS_VERSION )
+  message( FATAL_ERROR
+         "ERROR: setup cetbuildtools to get the cmake modules" )
+endif()
+set( CMAKE_MODULE_PATH $ENV{CETBUILDTOOLS_DIR}/Modules 
+                                         ${CMAKE_MODULE_PATH} )
+
+# art contains cmake modules that we use
+set( ART_VERSION $ENV{ART_VERSION} )
+if( NOT ART_VERSION )
+  message( FATAL_ERROR 
+         "ERROR: setup art to get the cmake modules" )
+endif()
+set( CMAKE_MODULE_PATH $ENV{ART_DIR}/Modules 
+                                         ${CMAKE_MODULE_PATH} )
+
+# Import the necessary macros
+include(CetCMakeEnv)
+include(BuildPlugins)
+include(ArtMake)
+include(FindUpsGeant4)
+
+# Configure the cmake environment
+cet_cmake_env()
+
+# Set compiler flags
+cet_set_compiler_flags( DIAGS VIGILANT WERROR
+   EXTRA_FLAGS -pedantic
+   EXTRA_CXX_FLAGS -std=c++11
+)
+
+cet_report_compiler_flags()
+
+# Set include and library search paths (the version numbers 
+# are minimum -  if actual version of product is below specified, 
+# will get error)
+
+# Everyone should include these
+find_ups_product(cetbuildtools v3_07_08)
+find_ups_product(art v1_08_10 )
+find_ups_product(fhiclcpp v2_17_12)
+find_ups_product(messagefacility v1_10_26)
+ 
+# This project uses code from gm2ringsim,
+# gm2dataproducts, and gm2geom
+find_ups_product(gm2ringsim v1_00_00)
+find_ups_product(gm2dataproducts v1_00_00)
+find_ups_product(gm2geom v1_00_00)
+
+# This project uses code from Root
+find_ups_root(v5_34_12)
+
+# Make sure we have gcc
+cet_check_gcc()
+
+# Macros for art_make and simple plugins (must go after 
+# find_ups lines)
+include(ArtDictionary)
+
+# Specify subdirectories to build
+add_subdirectory( ups )  # Every project needs a ups subdirectory
+add_subdirectory( DisplayDataProducts )
+add_subdirectory( calo )
+add_subdirectory( fcl )
+add_subdirectory( test )
+add_subdirectory( util )
+
+# Packaging facility - required for deployment
+include(UseCPack)
+\end{cpplisting}
+}
+
+\subsection{When you need to add/change a line in top level \texttt{CMakeLists.txt}}
+\label{sec:changeTopCmakeLists}
+
+There are two situations for which you will have to alter the top level \texttt{CMakeLists.txt} file:
+
+\paragraph{If you add, delete, or rename a subdirectory}
+
+If you add a subdirectory\index{add\_subdirectory}, you must write a corresponding
+\cppcode{add_subdirectory(dirName)} directive.\sidenote{The
+  \texttt{add\_subdirectory} directory tells CMake to go into that
+  subdirectory and build code there. If you don't have the
+  \texttt{add\_subdirectory} then CMake won't look in the
+  subdirectory at all.} If you delete a
+directory, you must remove its corresponding
+\cppcode{add_subdirectory} line. If you rename a directory, you must
+edit its corresponding \cppcode{add_subdirectory} line to reflect the
+change. If you do not follow these steps, then some code may not build
+(without an error, so this mistake will be hard to find) or you may
+get an error when CMake tries to build a directory that no longer
+exists.
+
+\paragraph{You use code from an external project}
+
+If you use code from an external project, you may need to add a
+corresponding \cppcode{find_ups_product} or similar line.\sidenote{See
+  section~\ref{sec:usingExternal} for instructions.}
+
+\section{Organizing Source Code}
+\label{sec:org_code}
+
+The build system we use is quite flexible and you can organize your
+code in  many ways. You may be used to having all of your header files
+in an \texttt{include} directory with the \texttt{.cc} files in other
+directories. This artificial separation is unnecessary. You may group
+files together any way you like and may have header files and
+implementation files in the same directory. Typically, it is best to
+group files by topic or functionality. 
+
+\section{\index{modules!writing}Writing Modules}
+\label{sec:writing-modules}
+
+Modules are plugins to art that perform certain functions (analyzers,
+producers, filters, and output modules). See section
+10 of the Art Work Book\cite{artwkb13} for more information. Only
+reminders will be given here. 
+
+You should use \index{artmod}\texttt{artmod} to write the skeleton of
+the module. Do \cppcode{artmod --help-types} to see the list of module
+types it will make. Then just run it, giving the name of the class you
+want including any namespace specification. For example,
+
+\begin{cpplisting}
+  artmod producer tracking:TrackFinder
+  artmod analyzer gm2analysis::CalorimeterDiags
+\end{cpplisting}
+
+Remember that you specify the class name, not the file name (so do not
+give \texttt{\_module} in the name). 
+
+\section{\index{services!writing}Writing Services}
+\label{sec:writing-services}
+
+TODO
+
+\section{\index{input source!writing}Writing Input Source Modules}
+\label{sec:writing-input-source}
+
+TODO
+
+\section{\index{CMakeLists.txt!directory level}Directory level \texttt{CMakeLists.txt} file}
+\label{sec:dircmake}
+
+If your subdirectory (e.g. \texttt{srcs/gm2analyses/strawTracker}) has
+anything to build, has header files, or has further subdirectories,
+then it must have a \texttt{CMakeLists.txt} file (and a corresponding
+\cppcode{add_subdirectory} line in the \texttt{CMakeLists.txt} from
+the directory above - see
+Sec.~\ref{sec:changeTopCmakeLists}).\sidenote{The directory level
+  \texttt{CMakeLists.txt} file is different from the top level
+  \texttt{CMakeLists.txt} file. The latter is in your project top
+  level directory, like \texttt{srcs/gm2analyses}. The former is in a
+  subdirectory of that top level and is described in this section.} If your
+subdirectory has code to build, then the directory
+\texttt{CMakeLists.txt} file needs to have \index{art\_make}
+
+\begin{cpplisting}
+ art_make(  )
+\end{cpplisting}
+
+A directory with no \texttt{.cc} or \texttt{.cpp} files has no code to
+build and so does not get an \texttt{art\_make} line in the directory
+\texttt{CMakeLists.txt} file.
+
+See the next section (Sec.~\ref{sec:artmakeargs}) for arguments to the
+\texttt{art\_make}. You should call \texttt{art\_make} only once per \texttt{CMakeLists.txt} file. 
+
+If your subdirectory has header files, then those have to be copied to the release area when one runs \texttt{mrb install}. To do that, you need a line the directory \texttt{CMakeLists.txt} file with\index{install\_headers}
+
+\begin{cpplisting}
+ install_headers( )  # No arguments 
+\end{cpplisting}
+
+If your subdirectory has fcl files, then those need to be copied to
+the build area as well as the release area. There is some scripting
+involved to do that (put the following in the directory \texttt{CMakeLists.txt} file),
+
+{\small
+\begin{cpplisting}
+# install all *.fcl files in this directory to the release area
+file(GLOB fcl_files *.fcl)
+install( FILES ${fcl_files}
+         DESTINATION ${product}/${version}/fcl )
+
+# Also install to the build area
+foreach(aFile ${fcl_files})
+  get_filename_component( basename ${aFile} NAME )
+  configure_file( 
+         ${aFile} ${CMAKE_BINARY_DIR}/${product}/fcl/${basename}
+         COPYONLY )
+endforeach(aFile)
+\end{cpplisting}
+%$
+}
+
+If your subdirectory has futher subdirectories with code to build, then you need an %$
+\texttt{add\_subdirectory( dirName )} line for each subdirectory.
+
+\subsection{Arguments to \texttt{art\_make}\index{art\_make!arguments}}
+\label{sec:artmakeargs}
+
+You can find documentation for \texttt{art\_make} in its source code at \\
+\texttt{\$ART\_DIR/Modules/ArtMake.cmake}. Basically, you need to
+specify what libraries to link against when you use external
+code.\sidenote{See Sec.~\ref{sec:usingExternal} for how to tell if you
+  are using external code.} If you don't use any external code, then
+you will have no arguments to \texttt{art\_make}. It will tell CMake
+to build all regular source, modules, services, and input sources in
+the directory.  If you do use external code, then you have four
+choices,
+
+\begin{itemize}
+\item If the source file using external code is a regular source (not a module, not a service, not an import source), then you need
+  \begin{cpplisting}
+    art_make( 
+          LIB_LIBRARIES
+          library1
+          library2   # if needed
+    )
+  \end{cpplisting}
+\item If the source file using the external code is a module source \\  (e.g. \texttt{analyze\_my\_hits\_module.cpp}) then you need
+  \begin{cpplisting}
+    art_make( 
+          MODULE_LIBRARIES
+          library1
+          library2   # if needed
+      )
+    \end{cpplisting}
+\item If the source file using the external code is a service source \\ (e.g. \texttt{analyze\_my\_hits\_service.cpp}) then you need
+  \begin{cpplisting}
+    art_make( 
+          SERVICE_LIBRARIES
+          library1
+          library2   # if needed
+      )
+    \end{cpplisting}
+\item If the source file using the external code is source code for an input source \\  (e.g. \texttt{midas\_source.cpp}) then you need
+  \begin{cpplisting}
+    art_make( 
+          SOURCE_LIBRARIES
+          library1
+          library2   # if needed
+      )
+    \end{cpplisting}
+  \end{itemize}
+
+  If you have a mixture of sources in your directory, you can string
+  the calls together. For example,\sidenote[][2\baselineskip]{ In the example to the
+    left, regular sources get linked against Root's
+    \texttt{libGpad.so} (see Sec.~\ref{sec:rootincludes}) and modules
+    get linked against code built in the
+    \texttt{srcs/gm2analyses/util} and
+    \texttt{srcs/gm2analyses/strawtracker/util} directories (see
+    Secs.~\ref{sec:incl-head-proj} and \ref{sec:incl-head-other} ).}
+
+  \begin{cpplisting}
+    art_make (
+         LIB_LIBRARIES
+            ${ROOT_GPAD}
+         MODULE_LIBRARIES
+            gm2analyses_util
+            gm2analyses_strawtracker_util
+           )
+  \end{cpplisting}
+%$
+
+ 
+
+Note that it does not hurt for code to build against a library that it
+doesn't need. So if you have five modules and only one needs to link
+against a library, put that library in the \texttt{MODULE\_LIBRARIES}
+section. The one that needs it will link against it and the four that
+don't won't care.
+
+\section{Libraries produced from building}
+\label{sec:libr-building}
+
+Every directory in your project that has code to build generates at
+least one library.\sidenote[][-1\baselineskip]{An important note, if your directory
+  \textbf{only} has header files in it (should be a rare situation for
+  code written by users), then no library will be produced (because
+  there is no code to build - the header files are all included by
+  other source code). You still need the directory level
+  \texttt{CMakeLists.txt} file for the \texttt{install\_headers()}
+  directive, but do not do \texttt{art\_make}. See
+  Sec.~\ref{sec:dircmake}.} Say, for example, you have a directory
+called \texttt{gm2analyses/calo}. Regular sources (not modules,
+services, nor input sources) get compiled and the objects go into a
+library called \texttt{libgm2analyses\_calo.so} (the name is the
+directory path with slashes replaced by underscores). Each module in
+the directory gets its own library. For example, if there is a module
+in that directory called \texttt{Analyze\_Calo\_module.cc} then that
+code will go into a library called
+\texttt{libgm2analyses\_calo\_Analyze\_Calo\_module.so}. A similar
+thing happens for services and input sources. Therefore, one directory
+of code may produce several libraries. The \texttt{art\_make}
+directive in the directory \texttt{CMakeLists.txt} file tells the
+build system to build code and make the corresponding libraries.
+
+
+
+\section{\index{external code}\index{linking}Using External Code (Linking)}
+\label{sec:usingExternal}
+
+Your code is almost never self-contained, especially when writing
+within the Art framework. You may use functions and classes from
+external libraries, like Root and Geant4. You may use algorithms, data
+products, and other functionalities from other projects, like
+\texttt{gm2ringsim}. You may use objects defined in other directories
+in your project. If you are writing an art module or service, you may
+use objects defined in the same directory, but in a different file
+from the module or service.  All of these examples are ``external
+code''.
+
+Art uses \emph{dynamic linking}, which means that the art executable (ours is called \texttt{gm2}) has very little code in it. Instead, it loads all of the libraries it needs at runtime. The other style is \emph{static linking} where the executable has embedded in it all of the libraries it needs. Dynamic linking, as the name suggests, allows for flexibility with one executable able to load a variety of different  libraries decided upon at runtime with the configuration file. There is, however, overhead in dynamic loading typically experienced as slow start-up time of the program. Static linking produces an executable with all of the libraries built in - so there is little flexibility in terms of functionality. But the start up time is much faster. Static linking typically leads to many copies of executables for the different functionalities, resulting in duplication of libraries that are in common. For maximum flexibility and non-duplication of libraries, art loads everything dynamically. 
+
+\newthought{How do you know when you are using external code?} An easy
+indicator is when you have a \cppcode{#include} for a header file. For
+each \cppcode{#include}, you need to think and perhaps add a
+corresponding link directive in a \texttt{CMakeLists.txt}
+file.\sidenote[][-2\baselineskip]{Remember the two types of \texttt{CMakeLists.txt}
+  files: ``top level'' and ``directory level''. The former (see
+  Sec.~\ref{sec:toplevelcmake}) is the potentially big file at the top
+  level of your project. The latter (see Sec.~\ref{sec:dircmake}) is
+  the smaller file in the directory with your actual source code
+  files.}  If you forget to link to a library that you need, you will
+get a missing symbol error when you try to run. This section will
+explain how to figure out these situations and actions you need to
+take.
+
+\subsection{Includes for system headers and base art headers}
+
+System headers, like \cppcode{#include <string>} do not require any special directives for linking. You get them for free.
+
+Headers in \texttt{art}, \texttt{fhiclcpp}, and \texttt{messagefacility} do not require anything in your directory level \texttt{CMakeLists.txt} file. The corresponding libraries are automatically loaded by the art executable. Your top level \texttt{CMakeLists.txt} file must contain the following lines,\index{find\_ups\_product}\sidenote[][2\baselineskip]{These lines add header file directories to the compiler include search path (e.g. without them, you will get a compilation error that header files cannot be found).}
+
+\begin{cpplisting}
+...
+cet_report_compiler_flags()
+...
+find_ups_product(art v1_08_10 )
+find_ups_product(fhiclcpp v2_17_12)
+find_ups_product(messagefacility v1_10_26)
+...
+\end{cpplisting}
+
+\subsection{Includes for Root headers}
+\label{sec:rootincludes}
+
+Including a header from Root is a little unusual because you do not have to give a path in the include, e.g. \cppcode{#include "TCanvas.h"} (not \cppcode {#include "root/TCanvas.h"}). If you include a header from Root, you will also need to link to the corresponding Root library. First, in the top level \texttt{CMakeLists.txt} file, you must have,\index{find\_ups\_root}\sidenote[][2\baselineskip]{That \texttt{find\_ups\_root} line adds the Root headers to the compiler include search path and creates CMake variables corresponding to each Root library.}
+
+\begin{cpplisting}
+...
+cet_report_compiler_flags()
+...
+find_ups_root(v5_34_12)
+...
+\end{cpplisting}
+
+If you look at the code for the \cppcode{find_ups_root} CMake macro at \\ \texttt{\$CETBUILDTOOLS/Modules/FindUpsRoot.cmake} you will see lines like,\sidenote[][2\baselineskip]{These lines define the CMake variables that correspond to Root libraries. You use them in the directory level \texttt{CMakeLists.txt} file to tell CMake to link against that library.}
+
+\begin{cpplisting}
+find_library(ROOT_GLEW NAMES GLEW PATHS ${ROOTSYS}/lib 
+                  NO_DEFAULT_PATH)
+find_library(ROOT_GPAD NAMES Gpad PATHS ${ROOTSYS}/lib 
+                  NO_DEFAULT_PATH)
+find_library(ROOT_GRAF NAMES Graf PATHS ${ROOTSYS}/lib  
+                  NO_DEFAULT_PATH)
+find_library(ROOT_GRAF3D NAMES Graf3d PATHS ${ROOTSYS}/lib 
+                  NO_DEFAULT_PATH)
+\end{cpplisting}
+
+To determine the Root library you need, look up the Root object in the Root documentation at \url{http://root.cern.ch/drupal/content/reference-guide} (select the appropriate version of Root - usually the PRO version). Find the class name from the list and click on it. On the new page, on the very right hand side in a little greyed out box it will say the library that corresponds to that Root object. For example, if you \cppcode{#include "TCanvas.h"} you need to link against the \texttt{libGpad} library. The CMake variable name will in general be the name of the library, all upper case, with the \cppcode{lib} replaced by \cppcode{ROOT\_}. So \cppcode{libGpad} $\rightarrow$ \cppcode{\$\{ROOT\_GPAD\}}.  
+
+In your directory level \texttt{CMakeLists.txt} file, you will have
+the \cppcode{art_make} directive. Add the appropriate CMake variable
+corresponding to the Root library you need. See
+Sec.~\ref{sec:artmakeargs} for where to put such items in the
+arguments. For example,\sidenote[][2\baselineskip]{In the example left, regular sources are linked against \texttt{libGpad.so} while modules are linked against \texttt{libTree.so} and \texttt{libTVMA.so}.} 
+
+\begin{cpplisting}
+      art_make (
+         LIB_LIBRARIES
+            ${ROOT_GPAD}
+         MODULE_LIBRARIES
+            ${ROOT_TREE}
+            ${ROOT_TVMA}
+      )
+\end{cpplisting}
+%$
+
+\subsection{Includes for GEANT headers}
+\label{sec:geantincludes}
+
+To include a header file from Geant4, requires you to have
+\texttt{Geant4/} in the header path, for example \cppcode{#include
+  "Geant4/G4Track.hh"}. If you include such headers in your code, then
+you will also need to link against the Geant4 libraries. First, in your top level \texttt{CMakeLists.txt} file, you must have,\index{find\_ups\_geant4}
+
+\begin{cpplisting}
+  ...
+  cet_report_compiler_flags()
+  ...
+  find_ups_geant4(v4_9_6_p02)
+  ...
+\end{cpplisting}
+
+That line adds the Geant4 headers to the compiler include search path
+and creates the CMake variables \texttt{\$\{G4\_LIB\_LIST\}} and
+\texttt{\$\{XERCESLIB\}}. For any Geant4 header, just add those CMake
+variables to the \texttt{art\_make} directive in your directory
+\texttt{CMakeLists.txt} file. See Sec.~\ref{sec:artmakeargs} for where
+to put such items in the arguments. For example,\\ \noindent
+\texttt{srcs/gm2ringsim/calo/CMakeLists.txt} has, in part,\sidenote[][2\baselineskip]{If you are curious, you can see where \texttt{G4\_LIB\_LIST} is defined in
+ \texttt{\$CETBUILDTOOLS\_DIR/Modules/FindUpsGeant4.cmake}. \texttt{XERCESLIB}
+goes with Geant.}
+
+\begin{cpplisting}
+  art_make( 
+      LIB_LIBRARIES
+          gm2geom_calo
+          gm2geom_station
+          artg4_material
+          artg4_util
+          ${XERCESCLIB}
+          ${G4_LIB_LIST}
+      SERVICE_LIBRARIES
+          gm2ringsim_calo
+        )
+\end{cpplisting}
+
+\subsection{Includes for headers in the project}
+\label{sec:incl-head-proj}
+
+The \cppcode{#include} directive should include the path to the header
+file, including the name of the project even if the header is in the
+same directory as the source, though you could just give the header
+file name. For example, if \texttt{CaloHitSD.hh} is in the
+\texttt{gm2ringsim/calo} directory, then \texttt{CaloHitSD.cc}, when it includes \texttt{CaloHitSD.hh}, can do either
+
+\begin{cpplisting}
+ #include "CaloHitSD.hh"
+\end{cpplisting}
+
+or
+
+\begin{cpplisting}
+ #include "gm2ringsim/calo/CaloHitSD.hh"
+\end{cpplisting}
+
+The latter is preferred as it is clearer, but if you change the name
+of the directory, you must change the include as well.
+
+If you have a regular source file and it includes a header that is
+present in the same directory, then you do not need to do anything to
+the \texttt{CMakeLists.txt} files. If you have a module, service, or
+input source file and it includes a header that is present in the same
+directory, then you need to link against the library for that
+directory. You do not need to add anything to the top level
+\texttt{CMakeLists.txt} file. To the directory \texttt{CMakeLists.txt}
+file, you must add the library.  See Sec.~\ref{sec:artmakeargs} for
+where to put such items in the arguments. For example,
+\texttt{srcs/gm2ringsim/calo/CMakeLists.txt} has, in
+part,\sidenote[][6\baselineskip]{In the left example, services in that
+  directory are linked against the library that gets created from the
+  regular sources, namely \texttt{libgm2ringsim\_calo.so}. You can
+  predict the name of the library by taking the source directory
+  (e.g. \texttt{gm2ringsim/calo}) and replacing the slashes by
+  underscores.}
+
+
+\begin{cpplisting}
+  art_make( 
+      LIB_LIBRARIES
+          gm2geom_calo
+          gm2geom_station
+          gm2ringsim_station
+          artg4_material
+          artg4_util
+          ${XERCESCLIB}
+          ${G4_LIB_LIST}
+      SERVICE_LIBRARIES
+          gm2ringsim_calo
+        )
+\end{cpplisting}
+
+If any source file uses a header that present in a different directory
+in your project, then you must link against that library. In the
+example above, code in the \texttt{gm2ringsim/calo} directory includes
+code from \texttt{gm2ringsim/station}, and hence
+\texttt{gm2ringsim\_station} is present in the arguments of
+\texttt{art\_make}.
+
+An important exception to these instructions is if the directory with
+the header file contains \textbf{only} header files. In that case, that
+directory produces no libraries and you do not have to change the
+directory \texttt{CMakeLists.txt} file.
+
+\subsection{Includes for headers in other projects}
+\label{sec:incl-head-other}
+
+If you have a source file (regular, module, service, or input source)
+that uses code from another project, then you need to do some work. An
+example here is code in \texttt{gm2ringsim} uses code from the
+\texttt{gm2geom} and \texttt{artg4} projects. The \cppcode{#include} needs the path to the header file including project name,
+directory name and header name. For example, \cppcode{#include "artg4/util/util.hh"}. 
+
+In your top level \texttt{CMakeLists.txt} file, you need a
+\texttt{find\_ups\_product} line for the project specifying the project name
+and a minimum version number. See Sec.\ref{sec:toplevelcmake} for an
+example.
+
+In your directory \texttt{CMakeLists.txt} file, you need to list the library corresponding to the code
+you are using. See Sec.~\ref{sec:artmakeargs} for
+where to put such items in the \texttt{art\_make} arguments. For example,\\\noindent 
+\texttt{srcs/gm2ringsim/calo/CMakeLists.txt} has, in part,
+
+\begin{cpplisting}
+  art_make( 
+      LIB_LIBRARIES
+          gm2geom_calo
+          gm2geom_station
+          artg4_material
+          artg4_util
+          ${XERCESCLIB}
+          ${G4_LIB_LIST}
+      SERVICE_LIBRARIES
+          gm2ringsim_calo
+        )
+\end{cpplisting}
+
+When the regular sources are built, they will be linked against code in \texttt{gm2geom/calo}, \texttt{gm2geom/station}, \texttt{artg4/material}, and 
+\texttt{artg4/util}.
+
+An important exception to these instructions is if the directory with
+the header file contains \textbf{only} header files. In that case, that
+directory produces no libraries and you do not have to change the
+directory \texttt{CMakeLists.txt} file. You still need to have the top
+level \texttt{CMakeLists.txt} file correct as described above. 
+
+
+
+
+      

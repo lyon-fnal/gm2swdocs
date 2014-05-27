@@ -1,0 +1,13 @@
+Muon g-2 computing documents
+
+computingModel.tex -- Description of the Computing Model and Architecture
+
+manual.tex - Offline Computing and Software Manual
+
+
+To build,
+
+pdflatex ; texindy [on the idx file] ; pdflatex ; pdflatex ; pdflatex
+
+To clean up,
+rm -f *.aux *.out *.idx *.ind *.log *.toc *.rel

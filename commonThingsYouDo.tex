@@ -1,0 +1,73 @@
+\chapter{Common Things You Do...}
+
+This chapter contains some reminders of common things you do in Muon $g-2$ code. 
+
+\section{Dealing with parameters}
+\label{sec-dealing-params}
+The constructor for your module or service has the parameter set as an argument. You can retrieve information from the parameter set and supply defaults if the parameter does not exist as in the example below.
+
+\begin{cpplisting}
+gm2ex::CalorimeterDigitizer::CalorimeterDigitizer(
+            fhicl::ParameterSet const & p) :
+  category_    (p.get<std::string>("category","digi")),
+  TAURAMP_     (p.get<float>("TAURAMP", 1.4 /* ns */)),
+  TAUDECAY_    (p.get<float>("TAUDECAY", 36.4 /* ns */)),
+  PULSELENGTH_ (p.get<int>("PULSELENGTH", 30 /* samples */)),
+// ...
+\end{cpplisting}
+
+\section{Readling enviornment variables}
+
+\begin{cpplisting}
+ #include <cstdlib>
+//...
+std::string value = std::getenv("PATH'');
+\end{cpplisting}
+
+The argument to \cppcode{std::getenv} is a constant character array, not a \cppcode{std::string}. \\
+
+\section{\index{exceptions}Throwing an exception}
+
+See \url{http://mu2e.fnal.gov/public/hep/computing/exceptions.shtml}. 
+
+\begin{cpplisting}
+#include "cetlib/exception.h"
+// ...
+if ( something ) {
+  throw cet::exception(CATEGORY) << "Message\n"
+}
+\end{cpplisting}
+
+\section{Finding a file}
+
+\texttt{cetlib} has a nice facility for searching for files in a path specification. See \texttt{\$CETLIB\_INC/cetlib/search\_path.h}.
+
+It may be convenient to specify the search path in a FHICL parameter with the possibility of providing an environment variable. Here is some 
+code that takes a search path through the parameter, but if the first character is a \$, it then gets the path through the specified environment variable.
+
+\begin{cpplisting}
+gm2util::MetadataFromFile::MetadataFromFile(
+          fhicl::ParameterSet const & p) :
+		searchPath_  (p.get<std::string>("searchPath", ".")),
+		fileName_    (p.get<std::string>("fileName")),
+		keyName_     (p.get<std::string>("keyName"))
+{
+	// Let's parse the search path
+	// If the first character is a dollar sign, then the 
+  // remaining is an environment variable
+	if ( searchPath_.at(0) == "$" ) {
+		std::string envVar = searchPath_.substr(1);
+		char* envValue = std::getenv(envVar.c_str());
+		if ( ! envValue ) {
+			searchPath_ = ".";
+			throw cet::exception("META_DATA_FROM_FILE") << 
+       "Environment variable " << envVar << " is not set";
+		}
+
+		searchPath_ = std::string(envValue);
+	}
+}
+\end{cpplisting}
+
+
+
